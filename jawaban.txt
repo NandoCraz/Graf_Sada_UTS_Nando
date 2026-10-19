@@ -1,0 +1,134 @@
+JAWABAN TUGAS GRAF SAINS DATA (UTS) - BAGIAN 2.1
+
+NOMOR 3: Komposisi Subgraph & Penjelasan Cypher SQL
+Dari hasil eksekusi Python API (`neo_api.py`), komposisi subgraph yang ada di database adalah sebagai berikut:
+
+1. Jenis dan Jumlah Simpul (Nodes):
+   - Simpul Visitor (User) : 1.407.580 simpul
+   - Simpul Item (Produk)  :   235.061 simpul
+   Total Simpul = 1.642.641 simpul.
+   (Catatan: Pada data terfilter rentang P1 & P2, terdapat 196.255 simpul Visitor dan 90.456 simpul Item).
+
+2. Jenis dan Jumlah Sisi / Relasi (Edges):
+   - VIEWED        : 3.360.267 relasi (interaksi melihat produk)
+   - ADDED_TO_CART :    87.412 relasi (memasukkan ke keranjang)
+   - BOUGHT        :    28.422 relasi (pembelian / transaksi)
+   Total Relasi = 3.476.101 relasi.
+
+3. Penjelasan Cypher SQL yang Digunakan:
+   a. Query menghitung simpul:
+      MATCH (n)
+      RETURN labels(n)[0] AS JenisSimpul, count(n) AS Jumlah
+      ORDER BY Jumlah DESC;
+      -> Perintah ini mencocokkan semua node (n), mengelompokkannya berdasarkan label simpul (:Visitor dan :Item), lalu menghitung jumlah masing-masing node.
+
+   b. Query menghitung relasi:
+      MATCH ()-[r]->()
+      RETURN type(r) AS JenisRelasi, count(r) AS Jumlah
+      ORDER BY Jumlah DESC;
+      -> Perintah ini mencari seluruh relasi berarah [r], mengelompokkannya berdasarkan tipe relasi (:VIEWED, :ADDED_TO_CART, :BOUGHT), dan menghitung frekuensi kejadiannya.
+
+
+NOMOR 4: Karakteristik Vector Space Modelling (VSM) Simpul User
+Pada VSM User, setiap pengunjung (User/Visitor) direpresentasikan sebagai satu vektor di mana fitur-fiturnya adalah seluruh produk (Item) yang tersedia.
+
+Karakteristiknya:
+- Dimensi Ruang Vektor : 90.456 dimensi (sejumlah total Item unik).
+- Shape Matriks        : (196.255, 90.456), artinya ada 196.255 baris user dan 90.456 kolom item.
+- Tingkat Sparsity     : 99,9984% (sangat renggang).
+  Artinya hampir seluruh sel matriks bernilai 0, karena rata-rata satu user hanya berinteraksi dengan sedikit barang saja dari puluhan ribu katalog yang ada.
+- Total Elemen Terisi  : 282.814 interaksi non-zero (dari total potensi 17,7 miliar pasangan sel).
+- Plot NetworkX:
+  Proyeksi graf User (User-User Network) menghubungkan dua user jika mereka pernah berinteraksi pada item yang sama. Hasil visualisasinya disimpan di file 'output/vsm_user_plot.png'.
+
+
+NOMOR 5: Karakteristik Vector Space Modelling (VSM) Simpul Item
+Pada VSM Item, kebalikannya: setiap produk (Item) direpresentasikan sebagai vektor di dalam ruang fitur yang beranggotakan seluruh User yang pernah berinteraksi dengannya.
+
+Karakteristiknya:
+- Dimensi Ruang Vektor : 196.255 dimensi (sejumlah total User unik).
+- Shape Matriks        : (90.456, 196.255), artinya ada 90.456 baris item dan 196.255 kolom user.
+- Tingkat Sparsity     : 99,9984% (karena merupakan transpose dari matriks user-item, kepadatannya sama-sama sangat renggang).
+- Total Elemen Terisi  : 282.814 interaksi non-zero.
+- Plot NetworkX:
+  Proyeksi graf Item (Item-Item Network) menghubungkan dua produk jika keduanya pernah dilihat atau dibeli oleh user yang sama. Hasil visualisasinya disimpan di file 'output/vsm_item_plot.png'.
+
+
+NOMOR 6: Analisis Komparasi Proyeksi (Mana yang Lebih Baik / Efektif / Efisien)
+Berdasarkan perbandingan karakteristik no. 4 dan 5, **PROYEKSI ITEM** jauh lebih baik, lebih efektif, dan lebih efisien dibandingkan Proyeksi User.
+
+Alasannya:
+1. Jauh Lebih Hemat dan Cepat (Efisiensi Komputasi):
+   Jumlah Item (90.456) jauh lebih sedikit daripada jumlah User (196.255). Komputasi untuk menghitung kemiripan antar-item berukuran O(M^2) yang jauh lebih ringan dan cepat dibandingkan komputasi antar-user O(N^2).
+
+2. Informasi Item Jauh Lebih Stabil:
+   Karakteristik dan jenis suatu produk cenderung tetap dan tidak gampang berubah. Sebaliknya, perilaku user sangat dinamis, selera bisa berubah sewaktu-waktu, dan banyak user anonim yang cuma datang sekali (masalah cold-start). Karena itu, similarity antar-item bisa disimpan dan dipakai lebih lama tanpa harus dihitung ulang terus-menerus.
+
+3. Lebih Efektif untuk Rekomendasi E-Commerce:
+   Di toko online, rekomendasi berbasis kemiripan item (Item-to-Item Collaborative Filtering) lebih mudah dijelaskan ke pembeli, seperti fitur "Barang yang serupa" atau "Pembeli barang ini juga melihat barang itu".
+
+
+JAWABAN TUGAS GRAF SAINS DATA (UTS) - BAGIAN 2.2 ANALYTICS
+
+NOMOR 1: Pemilihan User Acak & Rekomendasi KNN (k = 5)
+
+Proses Pemilihan User (Reproducible):
+1. User dipilih dari irisan (intersection) pengguna yang aktif pada periode Training (P1: 30 Juni - 7 Juli 2015) dan juga aktif pada periode Testing (P2: 8 Juli - 15 Juli 2015). Tujuannya agar hasil rekomendasi dapat diuji secara valid pada data aktual masa depan (Ground Truth P2).
+2. Dari dataset, diperoleh 4.308 user yang aktif di kedua periode tersebut.
+3. Seluruh user diurutkan secara ascending (`sorted(common_users)`), lalu diatur seed acak deterministik `np.random.seed(10)`.
+4. Menggunakan `np.random.choice(common_users)`, terpilihlah:
+   - User Terpilih (Visitor ID) : 417804
+   - Riwayat Item di P1 (Train) : [24040, 235304]
+   - Ground Truth di P2 (Test)  : [235304]
+   (Proses ini 100% reproducible: siapa pun yang menjalankan kode dengan seed 10 akan selalu mendapatkan User ID 417804).
+
+(a) Skrip Python Rekomendasi KNN:
+    - Seluruh implementasi kode lengkap dibuat pada file terpisah: `analytics_knn.py`.
+    - Skrip menggunakan Item-based Collaborative Filtering dengan Cosine Similarity pada matriks interaksi P1 (CSR sparse matrix) dengan nilai k = 5 tetangga terdekat.
+    - Untuk setiap item yang pernah dibuka user (Item 24040 dan 235304), dicari 5 tetangga terdekatnya, lalu skor kemiripannya diakumulasikan.
+
+(b) 3 Item yang Diiklankan untuk k = 5:
+    Berdasarkan perankingan akumulasi skor kemiripan tertinggi dari model KNN (k = 5), 3 item teratas yang diiklankan kepada User 417804 adalah:
+    1. Item ID: 19430  (Skor Kemiripan: 0.7071)
+    2. Item ID: 133894 (Skor Kemiripan: 0.5000)
+    3. Item ID: 235304 (Skor Kemiripan: 0.4082)
+
+
+NOMOR 2: Perhitungan Metrik Evaluasi Rekomendasi
+
+Daftar Top 5 Rekomendasi Model:
+- Peringkat 1 : Item 19430  (rel = 0, tidak ada di P2)
+- Peringkat 2 : Item 133894 (rel = 0, tidak ada di P2)
+- Peringkat 3 : Item 235304 (rel = 1, SESUAI / HIT di P2!)
+- Peringkat 4 : Item 24040  (rel = 0, tidak ada di P2)
+- Peringkat 5 : Item 155943 (rel = 0, tidak ada di P2)
+
+Ground Truth aktual pada periode P2 untuk User 417804 adalah Item: [235304].
+
+(a) Perhitungan Hit@5:
+    Hit@K bernilai 1 jika setidaknya ada 1 item rekomendasi pada Top-K yang sesuai dengan Ground Truth testing (P2), dan bernilai 0 jika tidak ada sama sekali.
+    - Item 235304 berhasil masuk ke dalam Top-5 rekomendasi (tepatnya pada peringkat ke-3).
+    - Rumus: Hit@5 = 1 (atau 100%).
+
+(b) Perhitungan NDCG@5 (Normalized Discounted Cumulative Gain at 5):
+    NDCG mengukur kualitas urutan rekomendasi dengan memberikan bobot penalti logaritmik jika item yang relevan muncul di peringkat yang lebih rendah.
+
+    Langkah 1: Menghitung DCG@5
+    Rumus: DCG@5 = SUM_{i=1 to 5} (rel_i / log2(i + 1))
+    - Peringkat 1: 0 / log2(2) = 0
+    - Peringkat 2: 0 / log2(3) = 0
+    - Peringkat 3: 1 / log2(4) = 1 / 2 = 0.5000
+    - Peringkat 4: 0 / log2(5) = 0
+    - Peringkat 5: 0 / log2(6) = 0
+    Total DCG@5 = 0.5000
+
+    Langkah 2: Menghitung Ideal DCG (IDCG@5)
+    IDCG adalah kondisi ideal di mana item relevan langsung berada di peringkat teratas (ranking 1).
+    - Peringkat Ideal 1: 1 / log2(2) = 1 / 1 = 1.0000
+    Total IDCG@5 = 1.0000
+
+    Langkah 3: Menghitung NDCG@5
+    Rumus: NDCG@5 = DCG@5 / IDCG@5
+           NDCG@5 = 0.5000 / 1.0000 = 0.5000 (atau 50,00%).
+
+Visualisasi grafik batang evaluasi Top-5 rekomendasi tersimpan di file: `output/knn_recommendations_plot.png`.

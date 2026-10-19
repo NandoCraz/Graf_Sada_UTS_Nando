@@ -1,0 +1,10 @@
+# Dataset besar (tidak boleh di-push ke GitHub)
+archive/
+output/*.csv
+
+# Python cache & virtual environments
+__pycache__/
+*.pyc
+.env
+venv/
+.venv/
